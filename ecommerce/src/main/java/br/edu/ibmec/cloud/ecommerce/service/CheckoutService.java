@@ -4,22 +4,27 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import br.edu.ibmec.cloud.ecommerce.config.CosmosProperties;
+import br.edu.ibmec.cloud.ecommerce.config.TransactionProperties;
 import br.edu.ibmec.cloud.ecommerce.entity.Order;
 import br.edu.ibmec.cloud.ecommerce.entity.Product;
+import br.edu.ibmec.cloud.ecommerce.errorHandler.CheckoutException;
 import br.edu.ibmec.cloud.ecommerce.repository.OrderRepository;
 
 @Service
+@EnableConfigurationProperties(TransactionProperties.class)
 public class CheckoutService {
     
     @Autowired
     private RestTemplate restTemplate;
 
-    private final String baseUrl = "http://localhost:8090";
-    private final String merchant = "BOT-COMMERCE";
+    @Autowired
+    private TransactionProperties transactionProperties;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -29,7 +34,7 @@ public class CheckoutService {
             TransacaoResponse response = this.autorizar(product, idUsuario, numeroCartao);
 
             if (response.getStatus().equals("APROVADO") == false) {
-                throw new Exception("Não consegui realizar a compra");
+                throw new CheckoutException("Não consegui realizar a compra");
             }
 
             Order order = new Order();
@@ -43,15 +48,15 @@ public class CheckoutService {
         }
         catch (Exception e) {
             //Gera um erro
-            throw new Exception("Não consegui realizar a compra");
+            throw new CheckoutException("Não consegui realizar a compra");
         }
     }
 
     private TransacaoResponse autorizar(Product product, int idUsuario, String numeroCartao) {
-        String url = baseUrl + "/autorizar";
+        String url = transactionProperties.getTransactionUrl();
         TransacaoRequest request = new TransacaoRequest();
 
-        request.setComerciante(merchant);
+        request.setComerciante(transactionProperties.getMerchant());
         request.setIdUsuario(idUsuario);
         request.setNumeroCartao(numeroCartao);
         request.setValor(product.getPrice());
